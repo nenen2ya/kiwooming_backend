@@ -15,7 +15,7 @@ app.add_middleware(
 def read_root():
     return {"message": "KUM backend is running"}
 
-@app.get("/ui/{screen_name}")
+@app.get("/{screen_name}")
 def fetch_ui(screen_name: str):
     data = get_ui_structure(screen_name)
     return data
