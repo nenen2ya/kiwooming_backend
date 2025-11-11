@@ -5,6 +5,10 @@ from services.ui_service import get_ui_structure
 from pydantic import BaseModel
 from services.ai_service import get_ai_response
 
+from fastapi import FastAPI, Query
+from services.api_service import get_chart
+from services.api_service import get_quote
+
 app = FastAPI(title="KUM UI Context API")
 
 app.add_middleware(
@@ -27,6 +31,14 @@ class ChatRequest(BaseModel):
     text: str
     context: str | None = None
 
+@app.get("/chart/{stk_cd}")
+def chart(stk_cd: str, base_dt: str = Query(...), upd_stkpc_tp: str = "1"):
+    return get_chart(stk_cd, base_dt, upd_stkpc_tp)
+
+@app.get("/quote/{stk_cd}")
+def market_condition(stk_cd: str):
+    data = get_quote(stk_cd)
+    return data
 
 @app.post("/chat")
 def chat_with_ai(req: ChatRequest):
