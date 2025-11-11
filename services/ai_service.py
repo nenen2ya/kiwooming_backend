@@ -12,9 +12,6 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
 client = OpenAI(api_key=config["openai_api_key"])
 model_id = config["kiwume_model_id"]
 
-# ------------------------------------------
-# 🧠 캐시 저장용 전역 메모리
-# ------------------------------------------
 ui_context_cache = {}
 conversation_history = [{"role": "system", "content": config.get(
     "kiwooming_system_prompt",
@@ -29,7 +26,6 @@ def get_ai_response(user_input: str, context: str | None = None) -> str:
     """
 
     try:
-        # 1️⃣ AST Parser에서 UI 구조 불러오기 (캐시 존재 시 스킵)
         ui_json = ui_context_cache.get(context)
         if not ui_json and context:
             try:
@@ -40,14 +36,12 @@ def get_ai_response(user_input: str, context: str | None = None) -> str:
             except Exception as e:
                 print("⚠️ UI 파서 연결 실패:", e)
 
-        # 2️⃣ RAG 검색 (optional)
         rag_context = ""
         try:
             rag_context = search_from_vectorDB(user_input)
         except:
             pass
 
-        # 3️⃣ 프롬프트 구성
         prompt = f"""
         [현재 화면 이름]
         {context or '정보 없음'}
@@ -64,7 +58,6 @@ def get_ai_response(user_input: str, context: str | None = None) -> str:
 
         conversation_history.append({"role": "user", "content": prompt})
 
-        # 4️⃣ OpenAI API 호출
         response = client.chat.completions.create(
             model=model_id,
             messages=conversation_history,
@@ -75,7 +68,6 @@ def get_ai_response(user_input: str, context: str | None = None) -> str:
         reply = response.choices[0].message.content
         conversation_history.append({"role": "assistant", "content": reply})
 
-        # 5️⃣ 캐시 유지
         if context and ui_json:
             ui_context_cache[context] = ui_json
 
@@ -84,7 +76,6 @@ def get_ai_response(user_input: str, context: str | None = None) -> str:
     except Exception as e:
         print("❌ [get_ai_response ERROR]", e)
         return f"⚠️ 오류 발생: {e}"
-
 
 def search_from_vectorDB(query: str):
     """ (선택) RAG 검색 로직 자리 — 추후 연결 가능 """
