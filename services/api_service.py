@@ -1,77 +1,71 @@
-import requests
+# services/api_service.py
 import os
-import json
+import time
+import requests
 
-KIWOOM_BASE_URL = "https://api.kiwoom.com"
-APP_KEY = os.getenv("KIWOOM_APP_KEY")
-SECRET_KEY = os.getenv("KIWOOM_SECRET_KEY")
+KIWOOM_API_BASE = os.getenv("KIWOOM_API_BASE", "https://api.kiwoom.com")
+API_ID_CHART = os.getenv("KIWOOM_API_ID_CHART", "ka10081")
+API_ID_MRKCOND = os.getenv("KIWOOM_API_ID_MRKCOND", "ka10004")
+
+# --- 토큰 캐싱 ---
+_token_cache = {"access_token": None, "expires_at": 0}
+
+def _fetch_access_token():
+    url = f"{KIWOOM_API_BASE}/oauth2/token"
+    headers = {"Content-Type": "application/json;charset=UTF-8"}
+    body = {
+        "grant_type": "client_credentials",
+        "appkey": os.getenv("KIWOOM_API_KEY"),
+        "secretkey": os.getenv("KIWOOM_API_SECRET"),
+    }
+    res = requests.post(url, headers=headers, json=body, timeout=20)
+    data = res.json()
+    if res.status_code == 200 and data.get("return_code") == 0:
+        # expires_dt 는 문자열이므로, 안전하게 50분짜리 캐시로 처리
+        _token_cache["access_token"] = data["token"]
+        _token_cache["expires_at"] = time.time() + 50 * 60
+        return data["token"]
+    raise RuntimeError(f"토큰발급 실패: {data}")
 
 def get_access_token():
-    token = os.getenv("KIWOOM_ACCESS_TOKEN")
-    if token:
-        return token
-    raise ValueError("토큰이 .env 파일에 없습니다. 새로 발급해주세요.")
+    if _token_cache["access_token"] and time.time() < _token_cache["expires_at"]:
+        return _token_cache["access_token"]
+    return _fetch_access_token()
 
-def get_chart(stk_cd: str, base_dt: str, upd_stkpc_tp: str = "1"):
-    try:
-        token = get_access_token()
-        if not token:
-            raise ValueError("토큰 발급 실패")
-
-        url = f"{KIWOOM_BASE_URL}/api/dostk/chart"
-        headers = {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Authorization": f"Bearer {token}",
-            "api-id": "ka10081"
-        }
-        payload = {
-            "stk_cd": stk_cd,
-            "base_dt": base_dt,
-            "upd_stkpc_tp": upd_stkpc_tp
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-
-        response.raise_for_status()
-        return response.json()
-
-    except Exception as e:
-        print(f"❌ [get_chart ERROR] {e}")
-        return {"error": str(e)}
-
-def get_quote(stk_cd: str):
-    """
-    주식시장상황조회요청 (ka10004)
-    - Endpoint: /api/dostk/mrkcond
-    - Body: { "stk_cd": "005930" }
-    """
+def _auth_headers(api_id: str | None):
     token = get_access_token()
-    endpoint = f"{KIWOOM_BASE_URL}/api/dostk/mrkcond"
     headers = {
         "Content-Type": "application/json;charset=UTF-8",
         "Authorization": f"Bearer {token}",
-        "api-id": "ka10004",
     }
-    body = {"stk_cd": stk_cd}
+    if api_id:
+        headers["api-id"] = api_id
+    return headers
 
+def get_chart(stk_cd: str, base_dt: str, upd_stkpc_tp: str = "1"):
+    """
+    /api/dostk/chart (일봉)
+    """
+    url = f"{KIWOOM_API_BASE}/api/dostk/chart"
+    headers = _auth_headers(API_ID_CHART)
+    body = {"stk_cd": stk_cd, "base_dt": base_dt, "upd_stkpc_tp": upd_stkpc_tp}
+    res = requests.post(url, headers=headers, json=body, timeout=20)
     try:
-        print(f"📤 요청 URL: {endpoint}")
-        print(f"📦 Headers: {headers}")
-        print(f"📨 Body: {body}")
-
-        res = requests.post(endpoint, headers=headers, json=body)
-        res.raise_for_status()
-
-        print(f"📡 상태코드: {res.status_code}")
-        print(f"📩 응답본문: {res.text}")
-
         data = res.json()
-        if "return_code" in data and data["return_code"] != 0:
-            print(f"⚠️ API 오류: {data.get('return_msg')}")
-            return {"error": data.get("return_msg"), "code": data.get("return_code")}
+    except Exception:
+        data = {"raw": res.text}
+    return data
 
-        return data
-
-    except Exception as e:
-        print("❌ [get_market_condition ERROR]", e)
-        return {"error": str(e)}
+def get_quote(stk_cd: str):
+    """
+    /api/dostk/mrkcond (호가/시장상태)
+    """
+    url = f"{KIWOOM_API_BASE}/api/dostk/mrkcond"
+    headers = _auth_headers(API_ID_MRKCOND)
+    body = {"stk_cd": stk_cd}
+    res = requests.post(url, headers=headers, json=body, timeout=20)
+    try:
+        data = res.json()
+    except Exception:
+        data = {"raw": res.text}
+    return data
