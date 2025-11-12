@@ -5,7 +5,7 @@ def get_ui_structure(screen_name: str):
         screen_res = (
             supabase.table("screen")
             .select("id, name")
-            .eq("name", screen_name)
+            .ilike("name", screen_name)
             .execute()
         )
 

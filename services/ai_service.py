@@ -1,7 +1,19 @@
 # services/ai_service.py
 import requests
 
-AI_SERVER_URL = "https://kiwooming-ai.onrender.com/chat"
+PARSER_URL = "http://localhost:4001/parse"
+
+def get_ui_context(screen_name: str):
+    try:
+        res = requests.get(f"{PARSER_URL}/{screen_name}", timeout=10)
+        if res.status_code == 200:
+            return res.json()  # JSX/AST JSON 반환
+        else:
+            return {"error": f"Parser 서버 오류: {res.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+AI_SERVER_URL = "http://localhost:6002/chat"
 
 def get_ai_response(user_input: str, context: str | None = None) -> str:
     """
