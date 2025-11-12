@@ -52,3 +52,9 @@ def chat_with_ai(req: ChatRequest):
     except Exception as e:
         print("❌ [chat_with_ai ERROR]", e)
         return {"reply": f"오류가 발생했습니다: {str(e)}"}
+    
+
+import uvicorn
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
