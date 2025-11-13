@@ -1,7 +1,9 @@
 # services/ai_service.py
+import os
 import requests
 
-PARSER_URL = "http://localhost:4001/parse"
+PARSER_URL = os.getenv("PARSER_URL", "http://localhost:4001/parse")
+AI_SERVER_URL = os.getenv("AI_SERVER_URL", "http://localhost:6002/chat")
 
 def get_ui_context(screen_name: str):
     try:
@@ -12,8 +14,6 @@ def get_ui_context(screen_name: str):
             return {"error": f"Parser 서버 오류: {res.status_code}"}
     except Exception as e:
         return {"error": str(e)}
-
-AI_SERVER_URL = "http://localhost:6002/chat"
 
 def get_ai_response(user_input: str, context: str | None = None) -> str:
     """

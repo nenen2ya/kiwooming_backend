@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from services.ui_service import get_ui_structure
 
@@ -9,7 +9,12 @@ from fastapi import FastAPI, Query
 from services.api_service import get_chart
 from services.api_service import get_quote
 
+import requests
+import os
+
 app = FastAPI(title="KUM UI Context API")
+
+AI_SERVER_URL = os.getenv("AI_SERVER_URL", "http://localhost:6002/chat")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +35,8 @@ def fetch_ui(screen_name: str):
 class ChatRequest(BaseModel):
     text: str
     context: str | None = None
+    section: str | None = None
+    scrollY: float | None = 0
 
 @app.get("/chart/{stk_cd}")
 def chart(stk_cd: str, base_dt: str = Query(...), upd_stkpc_tp: str = "1"):
@@ -42,17 +49,17 @@ def market_condition(stk_cd: str):
 
 @app.post("/chat")
 def chat_with_ai(req: ChatRequest):
-    """
-    - text: 사용자가 입력한 메시지
-    - context: (선택) 현재 화면 이름 등
-    """
     try:
-        reply = get_ai_response(req.text, context=req.context)
+        ai_response = requests.post(
+            AI_SERVER_URL,
+            json=req.dict(),
+            timeout=60
+        )
+        reply = ai_response.json().get("reply", "AI 응답 없음")
         return {"reply": reply}
     except Exception as e:
         print("❌ [chat_with_ai ERROR]", e)
         return {"reply": f"오류가 발생했습니다: {str(e)}"}
-    
 
 import uvicorn
 
